@@ -1,6 +1,5 @@
-def main():
-    print("Hello from call!")
+from src import test
 
 
 if __name__ == "__main__":
-    main()
+    test.main()
