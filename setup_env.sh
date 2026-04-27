@@ -3,11 +3,9 @@
 
 GOINFRE_PATH="/home/goinfre/tmousnia"
 
-mkdir -p "$GOINFRE_PATH/.cache/uv"
-mkdir -p "$GOINFRE_PATH/.cache/hugging_face"
 
-export UV_CACHE_DIR="$GOINFRE_PATH/.cache/uv"
-export HF_HOME="$GOINFRE_PATH/.cache/hugging_face"
+export UV_CACHE_DIR="$HOME/goinfre/tmousnia/.cache/uv"
+export HF_HOME="$HOME/goinfre/tmousnia/.cache/hugging_face"
 
 export PATH="$HOME/.local/bin:$PATH"
 
