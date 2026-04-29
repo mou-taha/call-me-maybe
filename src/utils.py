@@ -44,6 +44,5 @@ def parseJsonData(filePath: str, cls: type) -> list[jsonModel]:
                 prompt = cls.model_validate(p)
                 data.append(prompt)
             except ValidationError as e:
-                print(e)
                 continue
     return data

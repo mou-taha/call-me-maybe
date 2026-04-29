@@ -16,23 +16,20 @@ def main():
                 # parse json data from input files and validate it with
                 # pydantic models
                 prompts: list[Prompt] = parseJsonData(options.input, Prompt)
-                funcs_defs: list[FuncDefinition] = parseJsonData(
+                func_defs: list[FuncDefinition] = parseJsonData(
                     options.functions_definition, FuncDefinition
                 )
-                print(funcs_defs)
-                print(prompts)
+                if len(func_defs) == 0 or len(prompts) == 0:
+                    print(
+                        f"{options.input} or {options.functions_definition} is empty or contain invalid object."
+                    )
+                    return
+                else:
+                    print("treating prompts...")
+                
             except ValidationError:
                 print("Error parsing JSON data")
                 return
-            # for func_def in data["func_definitions"]:
-            #     print("Function Name:", func_def.name)
-            #     print("Description:", func_def.description)
-            #     print("Parameters:", func_def.parameters)
-            #     print("Returns:", func_def.returns)
-            #     print()
-            # for func_def in data["prompts"]:
-            #     print("Prompt:", func_def.prompt)
-            #     print()
         else:
             print(f"Invalid options provided: {msg}")
     except Exception as e:
