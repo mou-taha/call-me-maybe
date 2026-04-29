@@ -2,6 +2,8 @@ from sys import argv
 from .utils import readArgs, verifyOptions, parseJsonData
 from .models.options import Options
 from pydantic import ValidationError
+from .models.prompt import Prompt
+from .models.func_definition import FuncDefinition
 
 
 def main():
@@ -13,19 +15,24 @@ def main():
             try:
                 # parse json data from input files and validate it with
                 # pydantic models
-                data = parseJsonData(options)
+                prompts: list[Prompt] = parseJsonData(options.input, Prompt)
+                funcs_defs: list[FuncDefinition] = parseJsonData(
+                    options.functions_definition, FuncDefinition
+                )
+                print(funcs_defs)
+                print(prompts)
             except ValidationError:
                 print("Error parsing JSON data")
                 return
-            for func_def in data["func_definitions"]:
-                print("Function Name:", func_def.name)
-                print("Description:", func_def.description)
-                print("Parameters:", func_def.parameters)
-                print("Returns:", func_def.returns)
-                print()
-            for func_def in data["prompts"]:
-                print("Prompt:", func_def.prompt)
-                print()
+            # for func_def in data["func_definitions"]:
+            #     print("Function Name:", func_def.name)
+            #     print("Description:", func_def.description)
+            #     print("Parameters:", func_def.parameters)
+            #     print("Returns:", func_def.returns)
+            #     print()
+            # for func_def in data["prompts"]:
+            #     print("Prompt:", func_def.prompt)
+            #     print()
         else:
             print(f"Invalid options provided: {msg}")
     except Exception as e:

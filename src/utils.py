@@ -4,7 +4,8 @@ from pathlib import Path
 from .models.prompt import Prompt
 from .models.func_definition import FuncDefinition
 from .models.json_model import jsonModel
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
+from json import loads
 
 
 def readArgs(args: list[str]) -> Options:
@@ -34,11 +35,15 @@ def verifyOptions(options: Options) -> tuple[bool, str]:
     return True, ""
 
 
-def parseJsonData(options: Options) -> dict[str, list[jsonModel]]:
-    promptAdapter = TypeAdapter(list[Prompt])
-    jsonPrompt = Path(options.input).read_text()
-    prompts = promptAdapter.validate_json(jsonPrompt)
-    funcDefAdapter = TypeAdapter(list[FuncDefinition])
-    jsonFuncDef = Path(options.functions_definition).read_text()
-    func_calling_tests = funcDefAdapter.validate_json(jsonFuncDef)
-    return {"prompts": prompts, "func_definitions": func_calling_tests}
+def parseJsonData(filePath: str, cls: type) -> list[jsonModel]:
+    data: list[cls] = []
+    with open(filePath, "r") as f:
+        jsonData = loads(f.read())
+        for p in jsonData:
+            try:
+                prompt = cls.model_validate(p)
+                data.append(prompt)
+            except ValidationError as e:
+                print(e)
+                continue
+    return data
