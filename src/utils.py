@@ -76,5 +76,6 @@ this is the list of functions that you must pick from it:
 {userPrompt}
 
 ### RESPONSE:
-{{"prompt": "{userPrompt}","name":" '''
+{{"prompt": "{userPrompt}","name": "'''
     return prompt
+

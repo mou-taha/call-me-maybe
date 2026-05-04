@@ -63,36 +63,90 @@ def generateResponse(
     func_def_logits: list[list[int]] = []
     for func in funcDefs:
         func_def_logits.append(model.encode(func.name)[0].tolist())
+    if len(func_def_logits) == 0:
+        raise ValueError("No matching function names remaining.")
+    
+    picked_function_tokens: list[int] = []
+    # generating function name
+    while any([f for f in func_def_logits if len(f) > 0]):
+        logits = np.array(model.get_logits_from_input_ids(tokens))
+        
+        mask = np.full_like(logits, -np.inf)
+        allowed_tokens = [tokens[0] for tokens in func_def_logits]
+        for tokenId in allowed_tokens:
+            mask[tokenId] = logits[tokenId]
 
-    while True:
-        logits = model.get_logits_from_input_ids(tokens)
-        # if len(func_def_logits) != 1 and len([func[0] for func in func_def_logits]) != 0:
-        # if len(func_def_logits) == 1:
-        #      break
-        # TODO: find the condition to break at the end of func name
-        for _, id in vocab.items():
-            if id not in [tokens[0] for tokens in func_def_logits]:
-                logits[id] = -np.inf
-
-        best_token = logits.index(max(logits))
+        best_token = np.argmax(mask)
         tokens.append(best_token)
+        picked_function_tokens.append(best_token)
+        # keep only function logits that start 
         func_def_logits = [
             tokens for tokens in func_def_logits if tokens[0] == best_token
         ]
         func_def_logits = [tokens[1:] for tokens in func_def_logits]
-        print(len(func_def_logits))
-        print(len([func[0] for func in func_def_logits]))
-        # print(model.decode(tokens))
 
-    # example masking
-    # [10, 20]
-    # [40, 80]
+    #start generating parameters based on picked function
+    picked_function_name: str = model.decode(picked_function_tokens)
+    picked_function: FuncDefinition = [func for func in funcDefs if func.name == picked_function_name][0]
 
-    # allowed = [10, 40]
+    # encoding function parameters
+    func_param_logits: list[list[int]] = []
+    for paramName, paramType in picked_function.parameters.items():
+        func_param_logits.append(model.encode(paramName)[0].tolist())
 
-    # for token, id in model_dict.items():
-    #     if id not in allowed:
-    #         logits[id] = -inf
+    if len(func_param_logits) == 0:
+        raise ValueError("No matching function parameters names remaining.")
+    
+    tokens.extend(model.encode('","parameters": {"')[0].tolist())
+
+    picked_param_logits: list[int] = []
+    # generating param
+    for param_name, param_type in picked_function.parameters.items():
+        #work on a copy for function parameters logits
+        func_param_logits_clone = func_param_logits[:]
+        
+        # remove the parameters that already picked
+        if len(picked_param_logits) > 0:
+            func_param_logits.remove(picked_param_logits)
+        #generating param key
+        while any([param for param in func_param_logits_clone if len(param) > 0]):
+            logits = model.get_logits_from_input_ids(tokens)
+            mask = np.full_like(logits, -np.inf)
+            allowed_tokens = [token[0] for token in func_param_logits_clone]
+            for tokenId in allowed_tokens:
+                mask[tokenId] = logits[tokenId]
+            best_token = np.argmax(mask)
+            tokens.append(best_token)
+            picked_param_logits.append(int(best_token))
+            func_param_logits_clone = [logits for logits in func_param_logits_clone if logits[0] == best_token]
+            func_param_logits_clone = [logits[1:] for logits in func_param_logits_clone]
+
+        #start generating param value
+        tokens.extend(model.encode('": ')[0].tolist())
+        if (param_type.type.lower() == "number"):
+            while model.decode(tokens)[-1] != '"' and  model.decode(tokens)[-1] != '}':
+                logits = model.get_logits_from_input_ids(tokens)
+                mask = np.full_like(logits, -np.inf)
+                tokenId = model.encode(' "')[0].tolist()[0]
+                mask[tokenId] = logits[tokenId]
+                tokenId = model.encode('"')[0].tolist()[0]
+                mask[tokenId] = logits[tokenId]
+                tokenId = model.encode('.')[0].tolist()[0]
+                mask[tokenId] = logits[tokenId]
+                tokenId = model.encode('-')[0].tolist()[0]
+                mask[tokenId] = logits[tokenId]
+                if len(picked_function.parameters.items()) > 1:
+                    tokenId = model.encode(',')[0].tolist()[0]
+                    mask[tokenId] = logits[tokenId]
+                tokenId = model.encode('}')[0].tolist()[0]
+                mask[tokenId] = logits[tokenId]
+                for n in range(0,9):
+                    tokenId = vocab[str(n)]
+                    mask[tokenId] = logits[tokenId]
+                tokens.append(np.argmax(mask))
+                print(model.decode(tokens))
+            print("end................")
+
 
     return response
 
