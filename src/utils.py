@@ -70,11 +70,11 @@ this is the list of functions that you must pick from it:
 3. extract the required parameters with respecting their types
 4. respond only with a JSON object in this exact format :
 {"prompt": "user prompt","name": "function name","parameters": {"a": value with exact type, "b": value with exact type}}"""
-    prompt += f"""
+    prompt += f'''
 
 ### USER QUESTION:
 {userPrompt}
 
 ### RESPONSE:
-{{"prompt": "{userPrompt}","""
+{{"prompt": "{userPrompt}","name":" '''
     return prompt

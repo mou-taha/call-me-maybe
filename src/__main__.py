@@ -34,10 +34,10 @@ def main():
                 else:
                     print("treating prompts...")
                     model = Small_LLM_Model()
-                    vocab = []
+                    vocab: dict[str, int] = {}
                     with open(model.get_path_to_vocab_file(), "r") as vocabFile:
                         # read json file and convert the dictionary data to a list of tuples that contain vocab and its token
-                        vocab = [key for key, val in (loads(vocabFile.read()).items())]
+                        vocab = loads(vocabFile.read())
 
                     for userQuestion in prompts:
                         prompt: str = generatePrompt(userQuestion.prompt, func_defs)
@@ -55,20 +55,34 @@ def generateResponse(
     prompt: str,
     funcDefs: list[FuncDefinition],
     model: Small_LLM_Model,
-    vocab: list[str],
+    vocab: dict[str, int],
 ) -> str:
     response: str = ""
     tokens: list[int] = model.encode(prompt)[0].tolist()
+
+    func_def_logits: list[list[int]] = []
+    for func in funcDefs:
+        func_def_logits.append(model.encode(func.name)[0].tolist())
+
     while True:
-        logits = np.array(model.get_logits_from_input_ids(tokens))
-        # todo create a function that take the prompt and return the next tokens
-        next_token = ' "name":"'
-        next_token_encoded = model.encode(next_token)[0].tolist()
+        logits = model.get_logits_from_input_ids(tokens)
+        # if len(func_def_logits) != 1 and len([func[0] for func in func_def_logits]) != 0:
+        # if len(func_def_logits) == 1:
+        #      break
+        # TODO: find the condition to break at the end of func name
+        for _, id in vocab.items():
+            if id not in [tokens[0] for tokens in func_def_logits]:
+                logits[id] = -np.inf
 
-        tokens.extend(next_token_encoded)
-
-        # tokens.append(logits[vocab.index(model.encode(' "').tolist()[0][0])])
-        print(model.decode(tokens))
+        best_token = logits.index(max(logits))
+        tokens.append(best_token)
+        func_def_logits = [
+            tokens for tokens in func_def_logits if tokens[0] == best_token
+        ]
+        func_def_logits = [tokens[1:] for tokens in func_def_logits]
+        print(len(func_def_logits))
+        print(len([func[0] for func in func_def_logits]))
+        # print(model.decode(tokens))
 
     # example masking
     # [10, 20]
