@@ -147,7 +147,7 @@ def generateResponse(
         if i < len(params) - 1:
             tokens.extend(model.encode(',')[0].tolist())
     tokens.extend(model.encode('}}')[0].tolist())
-    print(model.decode(tokens))
+    response = model.decode(tokens).split("### RESPONSE:")[1]
     return response
 
 
