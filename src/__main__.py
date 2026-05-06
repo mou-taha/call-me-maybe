@@ -38,15 +38,15 @@ def main():
                         # read json file and convert the dictionary data to a list of tuples that contain vocab and its token
                         vocab = loads(vocabFile.read())
 
-                    # for userQuestion in prompts:
-                    #     prompt: str = generatePrompt(userQuestion.prompt, func_defs)
-                    #     generateResponse(prompt, func_defs, model, vocab)
-                    generateResponse(
-                        generatePrompt(prompts[10].prompt, func_defs),
-                        func_defs,
-                        model,
-                        vocab,
-                    )
+                    for userQuestion in prompts:
+                        prompt: str = generatePrompt(userQuestion.prompt, func_defs)
+                        generateResponse(prompt, func_defs, model, vocab)
+                    # generateResponse(
+                    #     generatePrompt(prompts[9].prompt, func_defs),
+                    #     func_defs,
+                    #     model,
+                    #     vocab,
+                    # )
             except ValidationError:
                 print("Error parsing JSON data")
                 return
@@ -104,75 +104,50 @@ def generateResponse(
     if len(func_param_logits) == 0:
         raise ValueError("No matching function parameters names remaining.")
 
-    tokens.extend(model.encode('","parameters": {"')[0].tolist())
+    tokens.extend(model.encode('","parameters": {')[0].tolist())
 
     picked_param_logits: list[int] = []
-    param_handled: int = 0
     # generating param
-    for param_name, param_type in picked_function.parameters.items():
-        param_handled = param_handled + 1
-        # work on a copy for function parameters logits
-        func_param_logits_clone = func_param_logits[:]
+    params = list(picked_function.parameters.items())
+    for i, (param_name, param_type) in enumerate(params):
 
         # remove the parameters that already picked
-        if len(picked_param_logits) > 0:
-            # TODO: fix the error when iterating over string args
+        if picked_param_logits in func_param_logits:
             func_param_logits.remove(picked_param_logits)
-        # generating param key
-        while any([param for param in func_param_logits_clone if len(param) > 0]):
-            logits = model.get_logits_from_input_ids(tokens)
-            mask = np.full_like(logits, -np.inf)
-            allowed_tokens = [token[0] for token in func_param_logits_clone]
-            for tokenId in allowed_tokens:
-                mask[tokenId] = logits[tokenId]
-            best_token = np.argmax(mask)
-            tokens.append(best_token)
-            picked_param_logits.append(int(best_token))
-            func_param_logits_clone = [
-                logits for logits in func_param_logits_clone if logits[0] == best_token
-            ]
-            func_param_logits_clone = [logits[1:] for logits in func_param_logits_clone]
 
+        tokens.extend(model.encode(f'"{param_name}":')[0].tolist())
         # start generating param value
-        tokens.extend(model.encode('": ')[0].tolist())
         if param_type.type.lower() == "number":
-            while model.decode(tokens)[-1] != '"' and model.decode(tokens)[-1] != "}":
+            while True:
                 logits = model.get_logits_from_input_ids(tokens)
                 mask = np.full_like(logits, -np.inf)
-                tokenId = model.encode(' "')[0].tolist()[0]
-                mask[tokenId] = logits[tokenId]
-                tokenId = model.encode('"')[0].tolist()[0]
+                tokenId = model.encode(',')[0].tolist()[0]
                 mask[tokenId] = logits[tokenId]
                 tokenId = model.encode(".")[0].tolist()[0]
-                mask[tokenId] = logits[tokenId]
-                tokenId = model.encode("-")[0].tolist()[0]
-                mask[tokenId] = logits[tokenId]
-                # include the char "," only if still parameters to add for the function if not its put on -inf to not be included in next tokens
-                if len(picked_function.parameters.items()) - param_handled > 0:
-                    tokenId = model.encode(",")[0].tolist()[0]
-                    mask[tokenId] = logits[tokenId]
-                tokenId = model.encode("}")[0].tolist()[0]
                 mask[tokenId] = logits[tokenId]
                 for n in range(0, 9):
                     tokenId = vocab[str(n)]
                     mask[tokenId] = logits[tokenId]
-                tokens.append(np.argmax(mask))
+                best_token = np.argmax(mask)
+                if ',' in model.decode(best_token):
+                    break
+                tokens.append(best_token)
 
         if param_type.type.lower() == "string":
+            tokens.extend(model.encode('"')[0].tolist())
             while True:
                 logits = model.get_logits_from_input_ids(tokens)
-                # put on the char "," to -inf if we are in the last parameter to force the model to close the object
-                # if len(picked_function.parameters.items()) - param_handled == 0:
-                #     tokenId = model.encode(",")[0].tolist()[0]
-                #     logits[tokenId] = -np.inf
                 best_token = np.argmax(logits)
-                tokens.append(best_token)
-                print(model.decode(tokens))
-                if model.decode(best_token) == '",':
+                # break the loop of generating when the model finish the generating value
+                if '"' in model.decode(best_token):
                     break
-
-    # print(model.decode(tokens))
-
+                tokens.append(best_token)
+            tokens.extend(model.encode('"')[0].tolist())
+            print(model.decode(tokens))      
+        if i < len(params) - 1:
+            tokens.extend(model.encode(',')[0].tolist())
+    tokens.extend(model.encode('}}')[0].tolist())
+    print(model.decode(tokens))
     return response
 
 
