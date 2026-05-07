@@ -24,23 +24,29 @@ def main():
                 )
                 func_defs: list[FuncDefinition] = cast(
                     list[FuncDefinition],
-                    parseJsonData(options.functions_definition, FuncDefinition),
+                    parseJsonData(options.functions_definition,
+                                  FuncDefinition)
                 )
                 if len(func_defs) == 0 or len(prompts) == 0:
                     print(
-                        f"{options.input} or {options.functions_definition} is empty or contain invalid object."
+                        f"{options.input} or {options.functions_definition}",
+                        "is empty or contain invalid object."
                     )
                     return
                 else:
                     model = Small_LLM_Model()
                     vocab: dict[str, int] = {}
-                    with open(model.get_path_to_vocab_file(), "r") as vocabFile:
-                        # read json file and convert the dictionary data to a list of tuples that contain vocab and its token
+                    with open(model.get_path_to_vocab_file(),
+                              "r") as vocabFile:
+                        # read json file and convert the dictionary data
+                        # to a list of tuples that contain vocab and its token
                         vocab = loads(vocabFile.read())
 
                     for userQuestion in prompts:
-                        prompt: str = generatePrompt(userQuestion.prompt, func_defs)
-                        print(generateResponse(prompt, func_defs, model, vocab))
+                        prompt: str = generatePrompt(userQuestion.prompt,
+                                                     func_defs)
+                        print(generateResponse(prompt, func_defs, model,
+                                               vocab))
                     # print(generateResponse(
                     #     generatePrompt(prompts[9].prompt, func_defs),
                     #     func_defs,
@@ -121,7 +127,7 @@ def generateResponse(
             while True:
                 logits = model.get_logits_from_input_ids(tokens)
                 mask = np.full_like(logits, -np.inf)
-                tokenId = model.encode(',')[0].tolist()[0]
+                tokenId = model.encode(",")[0].tolist()[0]
                 mask[tokenId] = logits[tokenId]
                 tokenId = model.encode(".")[0].tolist()[0]
                 mask[tokenId] = logits[tokenId]
@@ -129,13 +135,13 @@ def generateResponse(
                     tokenId = vocab[str(n)]
                     mask[tokenId] = logits[tokenId]
                 best_token = np.argmax(mask)
-                if ',' in model.decode(best_token):
+                if "," in model.decode(best_token):
                     break
                 tokens.append(best_token)
 
         if param_type.type.lower() == "string":
             tokens.extend(model.encode('"')[0].tolist())
-            bracket_depth = 0  # tracks unclosed [
+            bracket_count = 0  # tracks unclosed [
 
             while True:
                 logits = model.get_logits_from_input_ids(tokens)
@@ -143,22 +149,22 @@ def generateResponse(
                 decoded = model.decode(best_token)
 
                 if '"' in decoded:
-                    if bracket_depth > 0:
-                        closing = ']' * bracket_depth
+                    if bracket_count > 0:
+                        closing = "]" * bracket_count
                         tokens.extend(model.encode(closing)[0].tolist())
-                        bracket_depth = 0
+                        bracket_count = 0
                     break
 
-                bracket_depth += decoded.count('[')
-                bracket_depth -= decoded.count(']')
-                bracket_depth = max(bracket_depth, 0) 
+                bracket_count += decoded.count("[")
+                bracket_count -= decoded.count("]")
+                bracket_count = max(bracket_count, 0)
 
                 tokens.append(best_token)
-            
+
             tokens.extend(model.encode('"')[0].tolist())
         if i < len(params) - 1:
-            tokens.extend(model.encode(',')[0].tolist())
-    tokens.extend(model.encode('}}')[0].tolist())
+            tokens.extend(model.encode(",")[0].tolist())
+    tokens.extend(model.encode("}}")[0].tolist())
     response = model.decode(tokens).split("### RESPONSE:")[1]
     return response
 
