@@ -79,5 +79,5 @@ with exact type, "b": value with exact type}}"""
 {userPrompt}
 
 ### RESPONSE:
-{{"prompt": "{userPrompt}","name": "'''
+{{"prompt": "{" ".join(userPrompt.split())}","name": "'''
     return prompt
