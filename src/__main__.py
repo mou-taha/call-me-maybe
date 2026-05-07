@@ -40,13 +40,13 @@ def main():
 
                     for userQuestion in prompts:
                         prompt: str = generatePrompt(userQuestion.prompt, func_defs)
-                        generateResponse(prompt, func_defs, model, vocab)
-                    # generateResponse(
+                        print(generateResponse(prompt, func_defs, model, vocab))
+                    # print(generateResponse(
                     #     generatePrompt(prompts[9].prompt, func_defs),
                     #     func_defs,
                     #     model,
                     #     vocab,
-                    # )
+                    # ))
             except ValidationError:
                 print("Error parsing JSON data")
                 return
@@ -135,15 +135,27 @@ def generateResponse(
 
         if param_type.type.lower() == "string":
             tokens.extend(model.encode('"')[0].tolist())
+            bracket_depth = 0  # tracks unclosed [
+
             while True:
                 logits = model.get_logits_from_input_ids(tokens)
-                best_token = np.argmax(logits)
-                # break the loop of generating when the model finish the generating value
-                if '"' in model.decode(best_token):
+                best_token = int(np.argmax(logits))
+                decoded = model.decode(best_token)
+
+                if '"' in decoded:
+                    if bracket_depth > 0:
+                        closing = ']' * bracket_depth
+                        tokens.extend(model.encode(closing)[0].tolist())
+                        bracket_depth = 0
                     break
+
+                bracket_depth += decoded.count('[')
+                bracket_depth -= decoded.count(']')
+                bracket_depth = max(bracket_depth, 0) 
+
                 tokens.append(best_token)
+            
             tokens.extend(model.encode('"')[0].tolist())
-            print(model.decode(tokens))      
         if i < len(params) - 1:
             tokens.extend(model.encode(',')[0].tolist())
     tokens.extend(model.encode('}}')[0].tolist())
