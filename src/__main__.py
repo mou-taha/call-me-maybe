@@ -1,5 +1,5 @@
 from sys import argv
-from .utils import readArgs, verifyOptions, parseJsonData, generatePrompt
+from .utils import readArgs, verifyOptions, parseJsonData, generatePrompt, write_output
 from .models.options import Options
 from pydantic import ValidationError
 from .models.prompt import Prompt
@@ -40,15 +40,14 @@ def main():
                         # to a list of tuples that contain vocab and its token
                         vocab = loads(vocabFile.read())
 
+                    prompts_result: list[str] = []
                     for userQuestion in prompts:
                         prompt: str = generatePrompt(userQuestion.prompt, func_defs)
-                        print(generateResponse(prompt, func_defs, model, vocab))
-                    # print(generateResponse(
-                    #     generatePrompt(prompts[9].prompt, func_defs),
-                    #     func_defs,
-                    #     model,
-                    #     vocab,
-                    # ))
+                        prompts_result.append(generateResponse(prompt, func_defs, model, vocab))
+                        print(prompts_result[-1])
+                    
+                    write_output(options.output, prompts_result)
+
             except ValidationError:
                 print("Error parsing JSON data")
                 return
@@ -134,7 +133,6 @@ def generateResponse(
                 if "," in model.decode(best_token):
                     break
                 tokens.append(best_token)
-                print(model.decode(tokens).split("### RESPONSE:")[1])
 
         if param_type.type.lower() == "string":
             tokens.extend(model.encode('"')[0].tolist())
@@ -157,10 +155,8 @@ def generateResponse(
                 bracket_count = max(bracket_count, 0)
 
                 tokens.append(best_token)
-                response = model.decode(tokens).split("### RESPONSE:")[1]
-                print(model.decode(tokens).split("### RESPONSE:")[1])
 
-        tokens.extend(model.encode('"')[0].tolist())
+            tokens.extend(model.encode('"')[0].tolist())
         if i < len(params) - 1:
             tokens.extend(model.encode(",")[0].tolist())
     tokens.extend(model.encode("}}")[0].tolist())

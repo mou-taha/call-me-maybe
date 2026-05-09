@@ -5,6 +5,7 @@ from .models.json_model import jsonModel
 from pydantic import ValidationError
 from json import loads
 from .models.func_definition import FuncDefinition
+from typing import Type
 
 
 def readArgs(args: list[str]) -> Options:
@@ -34,13 +35,14 @@ def verifyOptions(options: Options) -> tuple[bool, str]:
     return True, ""
 
 
-def parseJsonData(filePath: str, cls: type) -> list[jsonModel]:
-    data: list[cls] = []
+def parseJsonData(filePath: str,
+                  model_class: Type[jsonModel]) -> list[jsonModel]:
+    data: list[jsonModel] = []
     with open(filePath, "r") as f:
         jsonData = loads(f.read())
         for p in jsonData:
             try:
-                prompt = cls.model_validate(p)
+                prompt = model_class.model_validate(p)
                 data.append(prompt)
             except ValidationError:
                 continue
@@ -48,6 +50,7 @@ def parseJsonData(filePath: str, cls: type) -> list[jsonModel]:
 
 
 def generatePrompt(userPrompt: str, funcDef: list[FuncDefinition]) -> str:
+    userPrompt = userPrompt.replace('"', '\\"')
     prompt = """You ar a function calling system, Your task is to extract the
 correct function name and its parameters from the user's
 question based on the definitions below.
@@ -60,8 +63,8 @@ this is the list of functions that you must pick from it:
       description: {func.description}
       parameter: -"""
         prompt += " -".join(
-            [f"{key}: type {value.type}" for key, value
-             in func.parameters.items()]
+            [f"{key}: type {value.type}" for key,
+                value in func.parameters.items()]
         )
         prompt += f"""
       return: type {func.returns.type}"""
@@ -81,3 +84,16 @@ with exact type, "b": value with exact type}}"""
 ### RESPONSE:
 {{"prompt": "{" ".join(userPrompt.split())}","name": "'''
     return prompt
+
+
+def write_output(filePath: str, result: list[str]) -> None:
+    if len(result) > 0:
+        output_file = Path(filePath)
+        output_file.parent.mkdir(exist_ok=True, parents=True)
+        with open(output_file, "w") as file:
+            file.write("[")
+            for index, r in enumerate(result):
+                file.write(r)
+                if len(result) - index != 1:
+                    file.write(",")
+            file.write("]")
