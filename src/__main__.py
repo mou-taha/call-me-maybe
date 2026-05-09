@@ -1,5 +1,6 @@
 from sys import argv
-from .utils import readArgs, verifyOptions, parseJsonData, generatePrompt, write_output
+from .utils import (readArgs, verifyOptions, parseJsonData,
+                    generatePrompt, write_output)
 from .models.options import Options
 from pydantic import ValidationError
 from .models.prompt import Prompt
@@ -8,6 +9,7 @@ from typing import cast
 from llm_sdk import Small_LLM_Model
 from json import loads
 import numpy as np
+from json.decoder import JSONDecodeError
 
 
 def main():
@@ -24,7 +26,8 @@ def main():
                 )
                 func_defs: list[FuncDefinition] = cast(
                     list[FuncDefinition],
-                    parseJsonData(options.functions_definition, FuncDefinition),
+                    parseJsonData(options.functions_definition,
+                                  FuncDefinition),
                 )
                 if len(func_defs) == 0 or len(prompts) == 0:
                     print(
@@ -35,21 +38,27 @@ def main():
                 else:
                     model = Small_LLM_Model()
                     vocab: dict[str, int] = {}
-                    with open(model.get_path_to_vocab_file(), "r") as vocabFile:
+                    with (open(model.get_path_to_vocab_file(), "r") 
+                          as vocabFile):
                         # read json file and convert the dictionary data
                         # to a list of tuples that contain vocab and its token
                         vocab = loads(vocabFile.read())
 
                     prompts_result: list[str] = []
                     for userQuestion in prompts:
-                        prompt: str = generatePrompt(userQuestion.prompt, func_defs)
-                        prompts_result.append(generateResponse(prompt, func_defs, model, vocab))
+                        prompt: str = generatePrompt(userQuestion.prompt,
+                                                     func_defs)
+                        prompts_result.append(generateResponse(prompt,
+                                                               func_defs,
+                                                               model,
+                                                               vocab))
                         print(prompts_result[-1])
-                    
+
                     write_output(options.output, prompts_result)
 
-            except ValidationError:
-                print("Error parsing JSON data")
+            except (ValidationError, JSONDecodeError):
+                print("Error while parsing JSON data, please check files are",
+                      "contains valid JSON")
                 return
         else:
             print(f"Invalid options provided: {msg}")
@@ -126,6 +135,8 @@ def generateResponse(
                 mask[tokenId] = logits[tokenId]
                 tokenId = model.encode(".")[0].tolist()[0]
                 mask[tokenId] = logits[tokenId]
+                tokenId = model.encode("-")[0].tolist()[0]
+                mask[tokenId] = logits[tokenId]
                 for n in range(0, 10):
                     tokenId = vocab[str(n)]
                     mask[tokenId] = logits[tokenId]
@@ -141,11 +152,10 @@ def generateResponse(
                 logits = model.get_logits_from_input_ids(tokens)
                 best_token = int(np.argmax(logits))
                 decoded = model.decode(best_token)
-
-                # dont only break append what model generate with '"' before the '"'
                 if '"' in decoded:
+                    before_quotes = decoded.split('"')
+                    tokens.extend(model.encode(before_quotes[0])[0].tolist())
                     break
-
                 tokens.append(best_token)
 
             tokens.extend(model.encode('"')[0].tolist())
