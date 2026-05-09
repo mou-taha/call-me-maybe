@@ -136,23 +136,15 @@ def generateResponse(
 
         if param_type.type.lower() == "string":
             tokens.extend(model.encode('"')[0].tolist())
-            bracket_count = 0  # tracks unclosed [
 
             while True:
                 logits = model.get_logits_from_input_ids(tokens)
                 best_token = int(np.argmax(logits))
                 decoded = model.decode(best_token)
 
+                # dont only break append what model generate with '"' before the '"'
                 if '"' in decoded:
-                    if bracket_count > 0:
-                        closing = "]" * bracket_count
-                        tokens.extend(model.encode(closing)[0].tolist())
-                        bracket_count = 0
                     break
-
-                bracket_count += decoded.count("[")
-                bracket_count -= decoded.count("]")
-                bracket_count = max(bracket_count, 0)
 
                 tokens.append(best_token)
 
