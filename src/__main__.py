@@ -190,7 +190,7 @@ def generateResponse(
                     tokenId = vocab[str(n)]
                     mask[tokenId] = logits[tokenId]
                 best_token = np.argmax(mask)
-                if "," in model.decode(best_token) or i == 5:
+                if "," in model.decode(best_token) or count == 5:
                     break
                 tokens.append(best_token)
 
