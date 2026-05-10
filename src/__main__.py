@@ -38,7 +38,7 @@ def main():
                 else:
                     model = Small_LLM_Model()
                     vocab: dict[str, int] = {}
-                    with (open(model.get_path_to_vocab_file(), "r") 
+                    with (open(model.get_path_to_vocab_file(), "r")
                           as vocabFile):
                         # read json file and convert the dictionary data
                         # to a list of tuples that contain vocab and its token
@@ -98,6 +98,7 @@ def generateResponse(
         func_def_logits = [
             tokens for tokens in func_def_logits if tokens[0] == best_token
         ]
+        # pop the first value
         func_def_logits = [tokens[1:] for tokens in func_def_logits]
 
     # start generating parameters based on picked function
