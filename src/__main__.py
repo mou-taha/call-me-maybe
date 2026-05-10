@@ -1,24 +1,48 @@
 from sys import argv
-from .utils import (readArgs, verifyOptions, parseJsonData,
-                    generatePrompt, write_output)
+from .utils import readArgs, verifyOptions, parseJsonData, generatePrompt, write_output
 from .models.options import Options
-from pydantic import ValidationError
+from pydantic import ValidationError  # type: ignore
 from .models.prompt import Prompt
 from .models.func_definition import FuncDefinition
 from typing import cast
-from llm_sdk import Small_LLM_Model
+from llm_sdk import Small_LLM_Model  # type: ignore
 from json import loads
-import numpy as np
+import numpy as np  # type: ignore
 from json.decoder import JSONDecodeError
+
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+CYAN = "\033[96m"
+RESET = "\033[0m"
+RED = "\033[31m"
+
+HEADER = f"{RED}{'=' * 80}\n" + "      CALL-ME-MAYBE      \n" + f"{'=' * 80}{RESET}\n"
+
+
+def print_status(message: str, color: str = BLUE) -> None:
+    print(f"{color}{message}{RESET}")
+
+
+def clear_terminal() -> None:
+    print("\033[2J\033[H", end="")
+    print(HEADER, end="")
 
 
 def main():
+    """the entry point of the program, it will read the options from terminal,
+    validate them, then parse the input files and validate them with pydantic
+    models, after that it will generate the prompt for each user question
+    and call the LLM model to generate the response, finally it will write
+    the output to the output file."""
     try:
         # validate options from terminal and input files if exist
         options: Options = readArgs(argv[1:])
         is_valid_options, msg = verifyOptions(options)
         if is_valid_options:
             try:
+                clear_terminal()
+                print_status("Validating and loading input files...", GREEN)
                 # parse json data from input files and validate it with
                 # pydantic models
                 prompts: list[Prompt] = cast(
@@ -26,8 +50,7 @@ def main():
                 )
                 func_defs: list[FuncDefinition] = cast(
                     list[FuncDefinition],
-                    parseJsonData(options.functions_definition,
-                                  FuncDefinition),
+                    parseJsonData(options.functions_definition, FuncDefinition),
                 )
                 if len(func_defs) == 0 or len(prompts) == 0:
                     print(
@@ -36,29 +59,39 @@ def main():
                     )
                     return
                 else:
+                    print_status("Preparing the model...", GREEN)
                     model = Small_LLM_Model()
                     vocab: dict[str, int] = {}
-                    with (open(model.get_path_to_vocab_file(), "r")
-                          as vocabFile):
+                    with open(model.get_path_to_vocab_file(), "r") as vocabFile:
                         # read json file and convert the dictionary data
-                        # to a list of tuples that contain vocab and its token
                         vocab = loads(vocabFile.read())
 
                     prompts_result: list[str] = []
-                    for userQuestion in prompts:
-                        prompt: str = generatePrompt(userQuestion.prompt,
-                                                     func_defs)
-                        prompts_result.append(generateResponse(prompt,
-                                                               func_defs,
-                                                               model,
-                                                               vocab))
+                    print_status("Generating responses...", GREEN)
+                    for index, userQuestion in enumerate(prompts, start=1):
+                        clear_terminal()
+                        print_status(
+                            f"User question: {userQuestion.prompt}",
+                            CYAN,
+                        )
+                        print_status(
+                            f"[{index}/{len(prompts)}] Starting prompt generation...",
+                            CYAN,
+                        )
+                        prompt: str = generatePrompt(userQuestion.prompt, func_defs)
+                        prompts_result.append(
+                            generateResponse(prompt, func_defs, model, vocab)
+                        )
                         print(prompts_result[-1])
 
+                    print_status("Writing output file...", GREEN)
                     write_output(options.output, prompts_result)
-
+                    print("Done.")
             except (ValidationError, JSONDecodeError):
-                print("Error while parsing JSON data, please check files are",
-                      "contains valid JSON")
+                print(
+                    "Error while parsing JSON data, please check files are",
+                    "contains valid JSON",
+                )
                 return
         else:
             print(f"Invalid options provided: {msg}")
@@ -72,6 +105,13 @@ def generateResponse(
     model: Small_LLM_Model,
     vocab: dict[str, int],
 ) -> str:
+    """this function will generate the response from the LLM model
+    based on the generated prompt, it will first generate the function name
+    then it will generate the parameters for that function,
+    it will use the logits from the model to generate the response
+    and it will use a mask to only allow the tokens that are in
+    the function definitions and parameters,
+    it will return the generated response as a string."""
     response: str = ""
     tokens: list[int] = model.encode(prompt)[0].tolist()
 
@@ -82,6 +122,8 @@ def generateResponse(
         raise ValueError("No matching function names remaining.")
 
     picked_function_tokens: list[int] = []
+    picked_function_score = 0.0
+    print_status("Determining best function name...", CYAN)
     # generating function name
     while any([f for f in func_def_logits if len(f) > 0]):
         logits = np.array(model.get_logits_from_input_ids(tokens))
@@ -92,6 +134,7 @@ def generateResponse(
             mask[tokenId] = logits[tokenId]
 
         best_token = np.argmax(mask)
+        picked_function_score += float(mask[best_token])
         tokens.append(best_token)
         picked_function_tokens.append(best_token)
         # keep only function logits that start
@@ -106,6 +149,14 @@ def generateResponse(
     picked_function: FuncDefinition = [
         func for func in funcDefs if func.name == picked_function_name
     ][0]
+    print_status(
+        f"Picked function: {picked_function_name} (score: {picked_function_score:.2f})",
+        YELLOW,
+    )
+    print_status(
+        f"Starting parameter generation for {picked_function_name}...",
+        CYAN,
+    )
 
     # encoding function parameters
     func_param_logits: list[list[int]] = []
@@ -121,6 +172,11 @@ def generateResponse(
     # generating param
     params = list(picked_function.parameters.items())
     for i, (param_name, param_type) in enumerate(params):
+
+        print_status(
+            f"Generating value for parameter: {param_name} ({param_type.type})",
+            BLUE,
+        )
 
         # remove the parameters that already picked
         if picked_param_logits in func_param_logits:

@@ -2,13 +2,16 @@ from getopt import getopt
 from .models.options import Options
 from pathlib import Path
 from .models.json_model import jsonModel
-from pydantic import ValidationError
+from pydantic import ValidationError  # type: ignore
 from json import loads
 from .models.func_definition import FuncDefinition
 from typing import Type
 
 
 def readArgs(args: list[str]) -> Options:
+    """this function will read the options from terminal and return an Options
+    object, it will use getopt to parse the options and it will return the
+    options as an Options object."""
     options = Options()
     long_options = ["functions_definition=", "input=", "output="]
     arguments, _ = getopt(args, "", long_options)
@@ -24,6 +27,10 @@ def readArgs(args: list[str]) -> Options:
 
 
 def verifyOptions(options: Options) -> tuple[bool, str]:
+    """this function will verify the options provided by the user,
+    it will return a tuple of a boolean and a string,
+    the boolean will indicate if the options are valid or not,
+    and the string will contain the error message if any."""
     if not Path(options.functions_definition).exists():
         return (
             False,
@@ -50,6 +57,9 @@ def parseJsonData(filePath: str,
 
 
 def generatePrompt(userPrompt: str, funcDef: list[FuncDefinition]) -> str:
+    """this function will generate the prompt for the LLM model based on the
+    user question and the function definitions, it will return the generated
+    prompt as a string."""
     userPrompt = userPrompt.replace('"', '\\"')
     prompt = """You ar a function calling system, Your task is to extract the
 correct function name and its parameters from the user's
@@ -74,7 +84,7 @@ this is the list of functions that you must pick from it:
 2. select the most relevant function name
 3. extract the required parameters with respecting their types
 4. respond only with a JSON object in this exact format :
-{"prompt": "user prompt","name": "function name","parameters": {"a": value 
+{"prompt": "user prompt","name": "function name","parameters": {"a": value
 with exact type, "b": value with exact type}}"""
     prompt += f'''
 

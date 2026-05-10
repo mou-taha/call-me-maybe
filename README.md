@@ -116,11 +116,11 @@ For each parameter defined in the **JSON schema**:
 
 ## Challenges faced:
 
-The primary hurdle was the **"Subword Overlap"** or **"Greedy Token"** problem.
+The primary hurdle was the **"Greedy Token"** problem.
 
 Subword tokenizers often combine data and syntax into a single token (the model might want to generate `]"` as one token ID). My initial algorithm would break the loop upon seeing the quote, but because I didn't append that specific token, I would lose the vital character (the `]`) preceding it.
 
-To solve this, I implemented a **Partial Decode & Break** strategy: when a "contaminated" token is detected, the system extracts the valid content before the structural character, appends that part to the response, and then breaks to let the manual state machine handle the clean JSON punctuation.
+To solve this, I implemented this strategy: when a "contaminated" token is detected, the system extracts the valid content before the structural character, appends that part to the response, and then breaks to let the manual state machine handle the clean JSON punctuation.
 
 ---
 ##  Testing strategy:
@@ -138,8 +138,7 @@ The system was validated using the provided `function_calling_tests.json`. Furth
 
 ## Performance analysis:
 
-* **Logit Masking Overhead:** The masking process is highly efficient, adding negligible latency to the generation process. By applying masks directly to the logit array, we maintain the model's inference speed.
-* **Optimization:** To avoid slow iteration over the 151k+ vocabulary items during generation, "safe token" lists (tokens containing no quotes) are pre-computed once. This reduces the per-token processing time from $O(V)$ to a simple vector operation.
+* **Optimization:** To avoid slow iteration over the 151k+ vocabulary items during generation, i iterate over "allowed token" lists.
 
 
 ## Example usage:
