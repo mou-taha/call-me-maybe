@@ -1,35 +1,20 @@
 from sys import argv
-from .utils import readArgs, verifyOptions, parseJsonData, generatePrompt, write_output
+from .utils import (readArgs, verifyOptions, parseJsonData,
+                    generatePrompt, write_output)
 from .models.options import Options
-from pydantic import ValidationError  # type: ignore
+from pydantic import ValidationError
 from .models.prompt import Prompt
 from .models.func_definition import FuncDefinition
 from typing import cast
-from llm_sdk import Small_LLM_Model  # type: ignore
+from llm_sdk import Small_LLM_Model  # type: ignore[attr-defined]
 from json import loads
-import numpy as np  # type: ignore
+import numpy as np
 from json.decoder import JSONDecodeError
-
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-BLUE = "\033[94m"
-CYAN = "\033[96m"
-RESET = "\033[0m"
-RED = "\033[31m"
-
-HEADER = f"{RED}{'=' * 80}\n" + "      CALL-ME-MAYBE      \n" + f"{'=' * 80}{RESET}\n"
+from .terminal_utils import (print_status, clear_terminal,
+                             GREEN, CYAN, YELLOW, BLUE)
 
 
-def print_status(message: str, color: str = BLUE) -> None:
-    print(f"{color}{message}{RESET}")
-
-
-def clear_terminal() -> None:
-    print("\033[2J\033[H", end="")
-    print(HEADER, end="")
-
-
-def main():
+def main() -> None:
     """the entry point of the program, it will read the options from terminal,
     validate them, then parse the input files and validate them with pydantic
     models, after that it will generate the prompt for each user question
@@ -50,7 +35,8 @@ def main():
                 )
                 func_defs: list[FuncDefinition] = cast(
                     list[FuncDefinition],
-                    parseJsonData(options.functions_definition, FuncDefinition),
+                    parseJsonData(options.functions_definition,
+                                  FuncDefinition, True),
                 )
                 if len(func_defs) == 0 or len(prompts) == 0:
                     print(
@@ -62,7 +48,8 @@ def main():
                     print_status("Preparing the model...", GREEN)
                     model = Small_LLM_Model()
                     vocab: dict[str, int] = {}
-                    with open(model.get_path_to_vocab_file(), "r") as vocabFile:
+                    with (open(model.get_path_to_vocab_file(), "r")
+                          as vocabFile):
                         # read json file and convert the dictionary data
                         vocab = loads(vocabFile.read())
 
@@ -75,14 +62,15 @@ def main():
                             CYAN,
                         )
                         print_status(
-                            f"[{index}/{len(prompts)}] Starting prompt generation...",
+                            (f"[{index}/{len(prompts)}] Starting"
+                             + "prompt generation..."),
                             CYAN,
                         )
-                        prompt: str = generatePrompt(userQuestion.prompt, func_defs)
+                        prompt: str = generatePrompt(userQuestion.prompt,
+                                                     func_defs)
                         prompts_result.append(
                             generateResponse(prompt, func_defs, model, vocab)
                         )
-                        print(prompts_result[-1])
 
                     print_status("Writing output file...", GREEN)
                     write_output(options.output, prompts_result)
@@ -150,7 +138,8 @@ def generateResponse(
         func for func in funcDefs if func.name == picked_function_name
     ][0]
     print_status(
-        f"Picked function: {picked_function_name} (score: {picked_function_score:.2f})",
+        f"Picked function: {picked_function_name} " +
+        f"(score: {picked_function_score:.2f})",
         YELLOW,
     )
     print_status(
@@ -174,7 +163,8 @@ def generateResponse(
     for i, (param_name, param_type) in enumerate(params):
 
         print_status(
-            f"Generating value for parameter: {param_name} ({param_type.type})",
+            f"Generating value for parameter: {param_name}"
+            + f" ({param_type.type})",
             BLUE,
         )
 
@@ -185,7 +175,9 @@ def generateResponse(
         tokens.extend(model.encode(f'"{param_name}":')[0].tolist())
         # start generating param value
         if param_type.type.lower() == "number":
+            counter: int = 0
             while True:
+                counter += 1
                 logits = model.get_logits_from_input_ids(tokens)
                 mask = np.full_like(logits, -np.inf)
                 tokenId = model.encode(",")[0].tolist()[0]
@@ -198,7 +190,7 @@ def generateResponse(
                     tokenId = vocab[str(n)]
                     mask[tokenId] = logits[tokenId]
                 best_token = np.argmax(mask)
-                if "," in model.decode(best_token):
+                if "," in model.decode(best_token) or i == 5:
                     break
                 tokens.append(best_token)
 

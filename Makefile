@@ -1,6 +1,7 @@
 PYTHON = python3
 MODULE = src
 SRC_DIR = src
+MYPY_FLAGS = --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
 all:run
 
@@ -18,6 +19,4 @@ clean:
 
 lint:
 	flake8 $(SRC_DIR)
-	mypy $(SRC_DIR) --warn-return-any
-	--warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs
-	--check-untyped-defs
+	uv run mypy src $(MYPY_FLAGS)

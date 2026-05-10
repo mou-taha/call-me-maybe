@@ -2,7 +2,7 @@ from getopt import getopt
 from .models.options import Options
 from pathlib import Path
 from .models.json_model import jsonModel
-from pydantic import ValidationError  # type: ignore
+from pydantic import ValidationError
 from json import loads
 from .models.func_definition import FuncDefinition
 from typing import Type
@@ -43,7 +43,8 @@ def verifyOptions(options: Options) -> tuple[bool, str]:
 
 
 def parseJsonData(filePath: str,
-                  model_class: Type[jsonModel]) -> list[jsonModel]:
+                  model_class: Type[jsonModel],
+                  with_error: bool = False) -> list[jsonModel]:
     data: list[jsonModel] = []
     with open(filePath, "r") as f:
         jsonData = loads(f.read())
@@ -52,6 +53,8 @@ def parseJsonData(filePath: str,
                 prompt = model_class.model_validate(p)
                 data.append(prompt)
             except ValidationError:
+                if with_error:
+                    raise
                 continue
     return data
 
@@ -97,6 +100,9 @@ with exact type, "b": value with exact type}}"""
 
 
 def write_output(filePath: str, result: list[str]) -> None:
+    """this function will write the output to a file, it will create the file
+    if it does not exist, and it will write the result as a JSON array of
+    objects, it will return nothing."""
     if len(result) > 0:
         output_file = Path(filePath)
         output_file.parent.mkdir(exist_ok=True, parents=True)
