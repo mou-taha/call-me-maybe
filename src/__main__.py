@@ -174,7 +174,7 @@ def generateResponse(
 
         tokens.extend(model.encode(f'"{param_name}":')[0].tolist())
         # start generating param value
-        if param_type.type.lower() == "number":
+        if param_type.type.lower() in ["number", "integer", "float"]:
             counter: int = 0
             while True:
                 counter += 1
@@ -182,15 +182,16 @@ def generateResponse(
                 mask = np.full_like(logits, -np.inf)
                 tokenId = model.encode(",")[0].tolist()[0]
                 mask[tokenId] = logits[tokenId]
-                tokenId = model.encode(".")[0].tolist()[0]
-                mask[tokenId] = logits[tokenId]
+                if param_type.type.lower() != "integer":
+                    tokenId = model.encode(".")[0].tolist()[0]
+                    mask[tokenId] = logits[tokenId]
                 tokenId = model.encode("-")[0].tolist()[0]
                 mask[tokenId] = logits[tokenId]
                 for n in range(0, 10):
                     tokenId = vocab[str(n)]
                     mask[tokenId] = logits[tokenId]
                 best_token = np.argmax(mask)
-                if "," in model.decode(best_token) or count == 5:
+                if "," in model.decode(best_token) or counter == 50:
                     break
                 tokens.append(best_token)
 
@@ -201,7 +202,7 @@ def generateResponse(
                 logits = model.get_logits_from_input_ids(tokens)
                 best_token = int(np.argmax(logits))
                 decoded = model.decode(best_token)
-                if '"' in decoded:
+                if '"' in decoded and "\\" not in decoded:
                     before_quotes = decoded.split('"')
                     tokens.extend(model.encode(before_quotes[0])[0].tolist())
                     break

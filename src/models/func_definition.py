@@ -1,14 +1,13 @@
 from pydantic import BaseModel, Field
 from .json_model import jsonModel
-from typing import Literal
 
 
 class Parameter(BaseModel):
-    type: Literal["string", "number"]
+    type: str
 
 
 class FuncDefinition(jsonModel):
-    name: str = Field(..., max_length=50)
+    name: str = Field(..., max_length=100)
     description: str
     parameters: dict[str, Parameter]
     returns: Parameter

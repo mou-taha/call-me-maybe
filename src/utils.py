@@ -60,16 +60,19 @@ def parseJsonData(filePath: str,
 
 
 def generatePrompt(userPrompt: str, funcDef: list[FuncDefinition]) -> str:
-    """this function will generate the prompt for the LLM model based on the
-    user question and the function definitions, it will return the generated
-    prompt as a string."""
-    userPrompt = userPrompt.replace('"', '\\"')
+    """Generates the prompt for the LLM with safe JSON pre-filling."""
+    
+    user_clean = " ".join(userPrompt.split())
+
+    user_json_safe = user_clean.replace('\\', '\\\\').replace('"', '\\"')
+
     prompt = """You ar a function calling system, Your task is to extract the
 correct function name and its parameters from the user's
 question based on the definitions below.
 this is the list of functions that you must pick from it:
 
 ### AVAILABLE FUNCTIONS:"""
+
     for func in funcDef:
         prompt += f"""\n
     - name: {func.name}
@@ -81,23 +84,25 @@ this is the list of functions that you must pick from it:
         )
         prompt += f"""
       return: type {func.returns.type}"""
+
     prompt += """
 ### INSTRUCTIONS:
 1. analyze the user question
 2. select the most relevant function name
 3. extract the required parameters with respecting their types
 4. respond only with a JSON object in this exact format :
-{"prompt": "user prompt","name": "function name","parameters": {"a": value
-with exact type, "b": value with exact type}}"""
+{"prompt": "user prompt","name": "function name","parameters": {"a": value, "b": value}}"""
+
+
     prompt += f'''
 
 ### USER QUESTION:
-{userPrompt}
+{user_clean}
 
 ### RESPONSE:
-{{"prompt": "{" ".join(userPrompt.split())}","name": "'''
-    return prompt
+{{"prompt": "{user_json_safe}","name": "'''
 
+    return prompt
 
 def write_output(filePath: str, result: list[str]) -> None:
     """this function will write the output to a file, it will create the file
