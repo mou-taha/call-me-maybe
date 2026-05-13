@@ -1,4 +1,4 @@
-PYTHON = python3
+PYTHON = python
 MODULE = src
 SRC_DIR = src
 MYPY_FLAGS = --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs

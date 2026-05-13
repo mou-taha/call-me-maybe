@@ -110,7 +110,6 @@ def generateResponse(
         raise ValueError("No matching function names remaining.")
 
     picked_function_tokens: list[int] = []
-    picked_function_score = 0.0
     print_status("Determining best function name...", CYAN)
     # generating function name
     while any([f for f in func_def_logits if len(f) > 0]):
@@ -122,7 +121,6 @@ def generateResponse(
             mask[tokenId] = logits[tokenId]
 
         best_token = np.argmax(mask)
-        picked_function_score += float(mask[best_token])
         tokens.append(best_token)
         picked_function_tokens.append(best_token)
         # keep only function logits that start
@@ -138,8 +136,7 @@ def generateResponse(
         func for func in funcDefs if func.name == picked_function_name
     ][0]
     print_status(
-        f"Picked function: {picked_function_name} " +
-        f"(score: {picked_function_score:.2f})",
+        f"Picked function: {picked_function_name}",
         YELLOW,
     )
     print_status(

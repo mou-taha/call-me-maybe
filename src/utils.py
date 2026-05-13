@@ -61,7 +61,7 @@ def parseJsonData(filePath: str,
 
 def generatePrompt(userPrompt: str, funcDef: list[FuncDefinition]) -> str:
     """Generates the prompt for the LLM with safe JSON pre-filling."""
-    
+
     user_clean = " ".join(userPrompt.split())
 
     user_json_safe = user_clean.replace('\\', '\\\\').replace('"', '\\"')
@@ -91,8 +91,8 @@ this is the list of functions that you must pick from it:
 2. select the most relevant function name
 3. extract the required parameters with respecting their types
 4. respond only with a JSON object in this exact format :
-{"prompt": "user prompt","name": "function name","parameters": {"a": value, "b": value}}"""
-
+{"prompt": "user prompt",
+ "name": "function name","parameters": {"a": value, "b": value}}"""
 
     prompt += f'''
 
@@ -103,6 +103,7 @@ this is the list of functions that you must pick from it:
 {{"prompt": "{user_json_safe}","name": "'''
 
     return prompt
+
 
 def write_output(filePath: str, result: list[str]) -> None:
     """this function will write the output to a file, it will create the file
