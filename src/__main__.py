@@ -62,7 +62,7 @@ def main() -> None:
                             CYAN,
                         )
                         print_status(
-                            (f"[{index}/{len(prompts)}] Starting"
+                            (f"[{index}/{len(prompts)}] Starting "
                              + "prompt generation..."),
                             CYAN,
                         )
@@ -213,6 +213,25 @@ def generateResponse(
                 tokens.append(best_token)
 
             tokens.extend(model.encode('"')[0].tolist())
+
+        elif param_type.type.lower() == "boolean":
+            logits = model.get_logits_from_input_ids(tokens)
+
+            true_tokens = model.encode("true")[0].tolist()
+            false_tokens = model.encode("false")[0].tolist()
+
+            mask = np.full_like(logits, -np.inf)
+            mask[true_tokens[0]] = logits[true_tokens[0]]
+            mask[false_tokens[0]] = logits[false_tokens[0]]
+
+            best_bool_start = np.argmax(mask)
+            tokens.append(int(best_bool_start))
+
+            if best_bool_start == true_tokens[0]:
+                tokens.extend(true_tokens[1:])
+            else:
+                tokens.extend(false_tokens[1:])
+
         if i < len(params) - 1:
             tokens.extend(model.encode(",")[0].tolist())
     tokens.extend(model.encode("}}")[0].tolist())
