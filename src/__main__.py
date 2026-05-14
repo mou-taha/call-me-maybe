@@ -173,11 +173,14 @@ def generateResponse(
         # start generating param value
         if param_type.type.lower() in ["number", "integer", "float"]:
             counter: int = 0
+            generated_tokens = []
             while True:
                 counter += 1
                 logits = model.get_logits_from_input_ids(tokens)
                 mask = np.full_like(logits, -np.inf)
                 tokenId = model.encode(",")[0].tolist()[0]
+                mask[tokenId] = logits[tokenId]
+                tokenId = model.encode("}")[0].tolist()[0]
                 mask[tokenId] = logits[tokenId]
                 if param_type.type.lower() != "integer":
                     tokenId = model.encode(".")[0].tolist()[0]
@@ -188,13 +191,17 @@ def generateResponse(
                     tokenId = vocab[str(n)]
                     mask[tokenId] = logits[tokenId]
                 best_token = np.argmax(mask)
-                if "," in model.decode(best_token) or counter == 50:
+                generated_tokens.append(model.decode(best_token))
+                if any(x in ["}", ","] for
+                       x in generated_tokens) or counter == 50:
                     break
                 tokens.append(best_token)
+            if (param_type.type.lower() in ["number", "float"]
+                    and "." not in generated_tokens):
+                tokens.extend(model.encode(".0")[0].tolist())
 
         if param_type.type.lower() == "string":
             tokens.extend(model.encode('"')[0].tolist())
-
             while True:
                 logits = model.get_logits_from_input_ids(tokens)
                 best_token = int(np.argmax(logits))

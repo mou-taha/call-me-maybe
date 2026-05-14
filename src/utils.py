@@ -67,7 +67,7 @@ def generatePrompt(userPrompt: str, funcDef: list[FuncDefinition]) -> str:
     user_json_safe = user_clean.replace('\\', '\\\\').replace('"', '\\"')
 
     prompt = """You ar a function calling system, Your task is to extract the
-correct function name and its parameters from the user's
+correct function name and its parameters, from the user's
 question based on the definitions below.
 this is the list of functions that you must pick from it:
 
